@@ -32,7 +32,7 @@ In `nn/`, each .py file defines a model. Models are defined in functions, once t
 ```python
 CNNmodel(xtrain, ytrain)
 ```
-Once called, the model immediately starts to fit. Each model may have different shapes of `xtrain`. Example usage are already written in each .py file.
+Once called, the model immediately starts to fit. Each model may expect different shapes of `xtrain`. Example usage are already written in each .py file.
 
 Note that, after training is done, it only returns loss history of the model. This is because we use **ModelCheckpoint** and **EarlyStopping** to save the best model to `nn/models/`, preventing from getting overfit models. Use `m = load_model(path)` to get the trained model.
 
