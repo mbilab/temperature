@@ -3,7 +3,7 @@
 ## 1. Objective
 We wish to predict future temperature (every hour) using past weather data.
 
-## 2. Data Parsing
+## 2. Data Collection
 We parsed our training data from [CWB Observation Data Inquire System](https://e-service.cwb.gov.tw/HistoryDataQuery/index.jsp?fbclid=IwAR03ffdzMn6oSFDsNSeT34qiOHi5ut4rmW3rIriom7PJGXeFaSqE5I9MyZg). Crawler is at `nn/data/getdata.py`, just call `crawl(startDate, endDate, path)` to get csv file of hour-wise weather data given date interval. For instance:
 ```python
 crawlCSV((2010, 1, 1), (2018, 12, 31), 'raw.csv')
@@ -80,7 +80,7 @@ We used mean-absolute-error (unit: degrees celcius) as a metric to evaluate perf
 
 We tried to use additional weather features to improve accuracy, such as pressure and humidity (CNNsep). But it turns out past temperature is still the most dominent feature. However, we found that adding month as a feature slightly improved our result (CNNwithMonth).
 
-Also, we found that our model performs particularly bad between winter and spring. As the plot below shows, error in the first few months are relatively high.
+Also, we found that our model performed particularly bad between winter and spring. As the plot below shows the error in the first few months are relatively high.
 
 ![](/img/bigerror.PNG)
 
