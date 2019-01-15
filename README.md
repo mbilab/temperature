@@ -1,92 +1,86 @@
-# Temperature Prediction Using NN and Xgb
+# Temperature Prediction with Neural Network and Gradient Boosting
 
 ## 1. Objective
-We wish to predict future temperature (every hour) using past weather data.
+
+This project aims to predict future hourly temperatures using past weather data.
 
 ## 2. Data Collection
-We parsed our training data from [CWB Observation Data Inquire System](https://e-service.cwb.gov.tw/HistoryDataQuery/index.jsp?fbclid=IwAR03ffdzMn6oSFDsNSeT34qiOHi5ut4rmW3rIriom7PJGXeFaSqE5I9MyZg). Crawler is at `nn/data/getdata.py`, just call `crawl(startDate, endDate, path)` to get csv file of hour-wise weather data given date interval. For instance:
+
+Raw weather data is extracted from [CWB Observation Data Inquire System](https://e-service.cwb.gov.tw/HistoryDataQuery/index.jsp). The crawler locates at `nn/data/getdata.py`, where `crawl(startDate, endDate, path)` is used to get `.csv` files of hourly weather data for the given time interval. For instance:
+
 ```python
 crawlCSV((2010, 1, 1), (2018, 12, 31), 'raw.csv')
 ```
 
 ## 3. Data Processing
-Now that we have our raw csv data, we can call `getXY(path, inputHrs, hrsAfter, features)` in `nn/data/getdata.py` to get numpy arrays that can be directly used as model input and label, where `path` is the csv file path, `inputHrs` specifies how many hours you want to parse as input features, `hrsAfter` specifies how many hours later you wish to predict after the last input hour, and `features` is an array that tells the features to input in one hour. For instance:
+
+To get numpy arrays, one can call `getXY(path, inputHrs, hrsAfter, features)` in `nn/data/getdata.py`, where
+
+ * `path` specifies the path to a `.csv` file
+ * `inputHrs` specifies how many hours are used as input features
+ * `hrsAfter` specifies how many hours later to predict after the last input hour
+ * `features` specifies the features used for each hour
+
+For instance,
+
 ```python
 x, y = getXY('data/raw.csv', inputHrs=72, hrsAfter=24, features=['Temperature','StnPres'])
 ```
-that returns numpy arrays `x, y` with shape `(N, 72, 2), (N, )`, where `N` is the amount of data.
 
-For Xgb, data preprocessing is in `xgboost/get_data.py`. Use
+returns numpy arrays `x, y` with shape `(N, 72, 2), (N, )`, respectively.  `N` is the amount of data.
+
+For XGBoost, data preprocessing is in `xgboost/get_data.py`. Use
+
 ```python
 from_2010(path, tag, train_hour, max_train_hour, pred_hour)
 ```
-to get raw feature e.g. temperature. Tag is the column in number.
+
+to get raw features e.g. temperature (`tag` is the column index). Use
+
 ```python
 get_time(path, max_hour, pred_hour)
 ```
-to return date and time been normalized to 0~1, date is divided by 366, time is devided by 24.
 
+to get normalized date and time, where date is divided by 366, time is devided by 24.
 
-## 4. Models
-In `nn/`, each .py file defines a model. Models are defined in functions, once the function is called, for example:
-```python
-CNNmodel(xtrain, ytrain)
-```
-Once called, the model immediately starts to fit. Each model may have different shapes of `xtrain`. Example usage are already written in each .py file.
+## 4. Model Training
 
-Note that, after training is done, it only returns loss history of the model. This is because we use **ModelCheckpoint** and **EarlyStopping** to save the best model to `nn/models/` to prevent overfiting. Use `m = load_model(path)` to get the trained model.
+In `./nn/`, each `.py` file represents a model. For instance, one can call `CNNmodel(xtrain, ytrain)` in `./nn/CNNmodel.py` to train the model. Models may have different shapes of `xtrain`. See `./nn/*.py` for details. Note that, after training is done, only loss history is reported. The best model is saved to `./nn/models/` with **ModelCheckpoint** and **EarlyStopping**. Use `m = load_model(path)` to get the trained model. Below are models that have been tested.
 
-* **CNNmodel:** Basic CNN with no pooling. Inputs only contain `Temperature` as feature
+* **CNNmodel:** Basic CNN without pooling. Only **Temperature** is used as the input feature.
+* **CNNmodel_v2:** CNN with 3 input feature (stored in 3 channels): **Temperature**, **Td dew point** and **StnPres**.
+* **CNNconcatFeature:** The same as **CNNmodel_v2**, but the 3 features are concatenated.
+* **CNNsepFeature:** The same as  **CNNmodel_v2**, but the 3 features are submitted to 3 individual CNNs (see Figure (a)).
+* **CNNwithMonth:** Only **Temperature** is submitted to a CNN. Circularly encoded month is concatenated after the CNN (see in figure (b)).
+* **LSTMmodel:** LSTM with **Temperature** as the input feature.
+* **TrivialModel:** This model just outputs the last input **Temperature**, just for comparison with other models.
 
-* **CNNmodel_v2:** CNN with 3 features inputs: `Temperature`, `Td dew point` and `StnPres`
-
-* **CNNconcatFeature:** Inputs contain 3 features above, but concatenated
-
-* **CNNsepFeature:** 3 features seperated seperated into 3 individual CNN, then concatenates them in dense layer. As shown in figure (a)
-
-* **CNNwithMonth:** Inputs only `Temperature`, after passing through Conv layers, concatenates with circularly encoded month feature. As shown in figure (b)
-
-* **LSTMmodel:** simple LSTM model. Inputs only contain `Temperature`
-
-* **TrivialModel:** This model just outputs the last x value. Just for comparison with other models.
-
-|**(a)CNNsepFeature**|**(b)CNNwithMonth**|
-|-------|---------|
+|**(a) CNNsepFeature**| **(b) CNNwithMonth**    |
+|---------------------|-------------------------|
 |![](./img/sepCNN.PNG)|![](./img/CNNwithMon.PNG)|
 
-For xgb, in `xgboost/`:
-* **train.py** The feature may be raw or been normalized
+For XGBoost (see `./xgboost/`):
 
-* **train_cross.py** cross validation and testing for each year
-
-* **train_PCA.py** the feature after PCA
-
-* **tuning.py** to tune parameters with raw features or normalized
-
-* **tuning_PCA.py** to tune parameters with PCA features
+* **train.py**: The features may be raw or normalized.
+* **train_cross.py**: Cross validation and testing for each year.
+* **train_PCA.py**: The features underwent PCA.
+* **tuning.py**: Tune parameters for raw/normalized features.
+* **tuning_PCA.py**: Tune parameters for PCA features.
 
 ## 5. Results
-We used mean-absolute-error (unit: degrees celcius) as a metric to evaluate performance of a model. Below are the performance:
 
-|Model|mae|
-|---|---|
-|**TrivialModel**|1.92|
-|**CNNmodel**|1.398|
-|**CNNmodel_v2**|1.402|
-|**CNNwithMonth**|1.35|
+We used mean-absolute-error (MAE) in degrees Celsius as the metric to evaluate models. Below are the performance:
+
+| Model              | MAE |
+|--------------------|-----|
+|**TrivialModel**    |1.920|
+|**CNNmodel**        |1.398|
+|**CNNmodel_v2**     |1.402|
+|**CNNwithMonth**    |1.350|
 |**CNNconcatFeature**|1.399|
-|**CNNsepFeature**|1.444|
-|**LSTM**|1.414|
+|**CNNsepFeature**   |1.444|
+|**LSTM**            |1.414|
 
-We tried to use additional weather features to improve accuracy, such as pressure and humidity (CNNsep). But it turns out past temperature is still the most dominent feature. However, we found that adding month as a feature slightly improved our result (CNNwithMonth).
-
-Also, we found that our model performed particularly bad between winter and spring. As the plot below shows the error in the first few months are relatively high.
+Some additional weather features, such as pressure and humidity (**CNNsep**), but temperature is still the most dominent feature. Adding month as a feature slightly improved the model (**CNNwithMonth**). Our models performed particularly bad between winter and spring as shwon in the plot below. The error in the first few months are relatively high.
 
 ![](/img/bigerror.PNG)
-
-
-
-
-
-
-
